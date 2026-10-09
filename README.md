@@ -1,98 +1,49 @@
-# Welcome to GPUI!
+# gpui-pre (kinsoku fork)
 
-GPUI is a hybrid immediate and retained mode, GPU accelerated, UI framework
-for Rust, designed to support a wide variety of applications.
+A copy of [gpui-pre](https://crates.io/crates/gpui-pre) 0.3.6 — Zed's GPUI,
+published as a snapshot of zed-industries/zed@bcf6582 — with one change:
+Japanese line-start kinsoku in text wrapping. It exists for
+[grooveseek-desktop](https://github.com/alphabet-h/grooveseek-desktop), which
+patches it in through `[patch.crates-io]`.
 
-## Getting Started
+## Origin and modification
 
-GPUI is still in active development as we work on the Zed code editor, and is still pre-1.0. There will often be breaking changes between versions. You'll also need to use the latest version of stable Rust. Add `gpui`, and optionally `gpui_platform`, to your `Cargo.toml`:
+- Branch `crates-io` holds the crates.io package unmodified (`.crate` sha256
+  `a0437c0b83e636a92bd1a39fa1d05fb632ae671289537497b35871ffbe231b84`).
+- Branch `kinsoku` adds the patch on top. The only modified source file is
+  `src/text_system/line_wrapper.rs`: `is_word_char` also returns true for the
+  non-ASCII part of Word's standard (Normal) "no line start" set — ISO/IEC
+  29500 §17.3.1.16, the kinsoku default for Japanese — so a wrapped line never
+  starts with 、 。 」 ） ！ ？ ・ 々 and the like; the character before them
+  moves down with them instead. ASCII stays as gpui decides (`?` keeps URLs
+  wrappable). Small kana and ー may still start a line, as Word's standard
+  allows.
+- The fork carries no tests of its own. The published package's lib tests do
+  not build outside the Zed workspace: `src/svg_renderer.rs` includes fonts
+  from `../../../assets`, and some test dependencies are not in the package.
+  The pin is grooveseek-desktop's `tests/it/kinsoku.rs`, which fails when this
+  patch is not in the build.
+- Nothing else differs: the version stays 0.3.6 (the requirement of gpui-kit
+  and gpui-component is `=0.3.6`), and `repository` still names Zed.
 
-```toml
-gpui = { version = "*" }
-gpui_platform = { version = "*", features = ["font-kit", "wayland", "x11"] }
-```
+## License
 
-Everything in a standalone GPUI app starts with an `Application`. You can create one with `gpui_platform::application()`, which picks the windowing and text backends for the host OS, and kick off your application by passing a callback to `Application::run()`. Inside this callback, you can create a new window with `App::open_window()` and register your first root view.
+Apache-2.0, as upstream; see `LICENSE-APACHE`. The modified file says so at
+its top, and the commit that changed it describes the change.
 
-```rust,no_run
-use gpui::*;
+## Use
 
-fn main() {
-    gpui_platform::application().run(|cx: &mut App| {
-        // ..
-    });
-}
-```
+    [patch.crates-io]
+    gpui-pre = { git = "https://github.com/alphabet-h/gpui-pre", tag = "v0.3.6-kinsoku.1" }
 
-### `gpui_platform`
+## Updating to a new gpui-pre
 
-The features on `gpui_platform` are platform-specific, so the list above is a safe cross-platform default. If you build for a single platform, you can trim it:
+1. Import the new `.crate` into `crates-io` unmodified, with its sha256 in the
+   commit message.
+2. Cherry-pick the kinsoku commit onto it; check whether upstream changed
+   `is_word_char`.
+3. Tag `v<version>-kinsoku.1` and point the `[patch]` at it, in the same pull
+   request that bumps gpui-kit. Never move an existing tag.
 
-- **macOS** — Rendering uses Metal and is always available, but glyph rasterization needs `font-kit`. Without it, GPUI falls back to a placeholder text system that lays text out but renders no glyphs.
-
-    ```toml
-    gpui_platform = { version = "*", features = ["font-kit"] }
-    ```
-
-- **Linux / FreeBSD** — enable at least one windowing backend for desktop windows: `wayland`, `x11`, or both. These features also compile the renderer and text system, so no separate text feature is needed.
-
-    ```toml
-    gpui_platform = { version = "*", features = ["wayland", "x11"] }
-    ```
-
-- **Windows** — no features are required. Windowing uses Win32 and text uses DirectWrite. `font-kit` has no effect here.
-
-### Additional Topics
-
-- [Ownership and data flow](_ownership_and_data_flow)
-- [Accessibility](_accessibility)
-
-### Dependencies
-
-GPUI has various system dependencies that it needs in order to work.
-
-#### macOS
-
-On macOS, GPUI uses Metal for rendering. In order to use Metal, you need to do the following:
-
-- Install [Xcode](https://apps.apple.com/us/app/xcode/id497799835?mt=12) from the macOS App Store, or from the [Apple Developer](https://developer.apple.com/download/all/) website. Note this requires a developer account.
-
-> Ensure you launch Xcode after installing, and install the macOS components, which is the default option.
-
-- Install [Xcode command line tools](https://developer.apple.com/xcode/resources/)
-
-  ```sh
-  xcode-select --install
-  ```
-
-- Ensure that the Xcode command line tools are using your newly installed copy of Xcode:
-
-  ```sh
-  sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
-  ```
-
-## The Big Picture
-
-GPUI offers three different [registers](<https://en.wikipedia.org/wiki/Register_(sociolinguistics)>) depending on your needs:
-
-- State management and communication with `Entity`'s. Whenever you need to store application state that communicates between different parts of your application, you'll want to use GPUI's entities. Entities are owned by GPUI and are only accessible through an owned smart pointer similar to an `Rc`. See the `app::context` module for more information.
-
-- High level, declarative UI with views. All UI in GPUI starts with a view. A view is simply an `Entity` that can be rendered, by implementing the `Render` trait. At the start of each frame, GPUI will call this render method on the root view of a given window. Views build a tree of `elements`, lay them out and style them with a tailwind-style API, and then give them to GPUI to turn into pixels. See the `div` element for an all purpose swiss-army knife of rendering.
-
-- Low level, imperative UI with Elements. Elements are the building blocks of UI in GPUI, and they provide a nice wrapper around an imperative API that provides as much flexibility and control as you need. Elements have total control over how they and their child elements are rendered and can be used for making efficient views into large lists, implement custom layouting for a code editor, and anything else you can think of. See the `element` module for more information.
-
-Each of these registers has one or more corresponding contexts that can be accessed from all GPUI services. This context is your main interface to GPUI, and is used extensively throughout the framework.
-
-## Other Resources
-
-In addition to the systems above, GPUI provides a range of smaller services that are useful for building complex applications:
-
-- Actions are user-defined structs that are used for converting keystrokes into logical operations in your UI. Use this for implementing keyboard shortcuts, such as cmd-q. See the `action` module for more information.
-
-- Platform services, such as `quit the app` or `open a URL` are available as methods on the `app::App`.
-
-- An async executor that is integrated with the platform's event loop. See the `executor` module for more information.,
-
-- The `[gpui::test]` macro provides a convenient way to write tests for your GPUI applications. Tests also have their own kind of context, a `TestAppContext` which provides ways of simulating common platform input. See `app::test_context` and `test` modules for more details.
-
-Currently, the best way to learn about these APIs is to read the Zed source code or drop a question in the [Zed Discord](https://zed.dev/community-links). We're working on improving the documentation, creating more examples, and will be publishing more guides to GPUI on our [blog](https://zed.dev/blog).
+When upstream wraps by UAX #14 (zed-industries/zed#64624) and that reaches
+gpui-pre and gpui-kit, drop the `[patch]` and archive this repository.

@@ -1,3 +1,5 @@
+// Modified by alphabet-h (gpui-pre fork, kinsoku): is_word_char adds Word's default
+// line-start kinsoku characters. See README.
 use crate::{FontId, Pixels, SharedString, TextRun, TextSystem, px};
 use collections::HashMap;
 use std::{borrow::Cow, iter, sync::Arc};
@@ -484,6 +486,68 @@ impl LineWrapper {
         matches!(c, '!' | ')' | ']' | '}' | '"' | '”' | '»' | '…') ||
         // `⋯` character is special used in Zed, to keep this at the end of the line.
         matches!(c, '⋯') ||
+
+        // Japanese line-start kinsoku (fork alphabet-h/gpui-pre, until
+        // zed-industries/zed#64624 lands): Word's standard (Normal) "no line
+        // start" set, ISO/IEC 29500 §17.3.1.16 (kinsoku) default for Japanese,
+        // minus ASCII (gpui's own choice stands: `?` keeps URLs wrappable) and
+        // minus `’` `”` (listed above). Small kana and `ー` may still start a
+        // line, as Word's standard allows.
+        // UAX #14 CL (closing punctuation): 16
+        matches!(
+            c,
+            '\u{3001}' | // 、 IDEOGRAPHIC COMMA
+            '\u{3002}' | // 。 IDEOGRAPHIC FULL STOP
+            '\u{3009}' | // 〉 RIGHT ANGLE BRACKET
+            '\u{300B}' | // 》 RIGHT DOUBLE ANGLE BRACKET
+            '\u{300D}' | // 」 RIGHT CORNER BRACKET
+            '\u{300F}' | // 』 RIGHT WHITE CORNER BRACKET
+            '\u{3011}' | // 】 RIGHT BLACK LENTICULAR BRACKET
+            '\u{3015}' | // 〕 RIGHT TORTOISE SHELL BRACKET
+            '\u{FF09}' | // ） FULLWIDTH RIGHT PARENTHESIS
+            '\u{FF0C}' | // ， FULLWIDTH COMMA
+            '\u{FF0E}' | // ． FULLWIDTH FULL STOP
+            '\u{FF3D}' | // ］ FULLWIDTH RIGHT SQUARE BRACKET
+            '\u{FF5D}' | // ｝ FULLWIDTH RIGHT CURLY BRACKET
+            '\u{FF61}' | // ｡ HALFWIDTH IDEOGRAPHIC FULL STOP
+            '\u{FF63}' | // ｣ HALFWIDTH RIGHT CORNER BRACKET
+            '\u{FF64}' // ､ HALFWIDTH IDEOGRAPHIC COMMA
+        ) ||
+        // UAX #14 NS (nonstarters): 13
+        matches!(
+            c,
+            '\u{3005}' | // 々 IDEOGRAPHIC ITERATION MARK
+            '\u{309B}' | // ゛ KATAKANA-HIRAGANA VOICED SOUND MARK
+            '\u{309C}' | // ゜ KATAKANA-HIRAGANA SEMI-VOICED SOUND MARK
+            '\u{309D}' | // ゝ HIRAGANA ITERATION MARK
+            '\u{309E}' | // ゞ HIRAGANA VOICED ITERATION MARK
+            '\u{30FB}' | // ・ KATAKANA MIDDLE DOT
+            '\u{30FD}' | // ヽ KATAKANA ITERATION MARK
+            '\u{30FE}' | // ヾ KATAKANA VOICED ITERATION MARK
+            '\u{FF1A}' | // ： FULLWIDTH COLON
+            '\u{FF1B}' | // ； FULLWIDTH SEMICOLON
+            '\u{FF65}' | // ･ HALFWIDTH KATAKANA MIDDLE DOT
+            '\u{FF9E}' | // ﾞ HALFWIDTH KATAKANA VOICED SOUND MARK
+            '\u{FF9F}' // ﾟ HALFWIDTH KATAKANA SEMI-VOICED SOUND MARK
+        ) ||
+        // UAX #14 EX (exclamation / interrogation): 2
+        matches!(
+            c,
+            '\u{FF01}' | // ！ FULLWIDTH EXCLAMATION MARK
+            '\u{FF1F}' // ？ FULLWIDTH QUESTION MARK
+        ) ||
+        // UAX #14 PO (postfix numeric): 8
+        matches!(
+            c,
+            '\u{00A2}' | // ¢ CENT SIGN
+            '\u{00B0}' | // ° DEGREE SIGN
+            '\u{2030}' | // ‰ PER MILLE SIGN
+            '\u{2032}' | // ′ PRIME
+            '\u{2033}' | // ″ DOUBLE PRIME
+            '\u{2103}' | // ℃ DEGREE CELSIUS
+            '\u{FF05}' | // ％ FULLWIDTH PERCENT SIGN
+            '\u{FFE0}' // ￠ FULLWIDTH CENT SIGN
+        ) ||
 
         // Non-breaking glue characters
         matches!(c, '\u{202F}' | '\u{00A0}' | '\u{2011}')
